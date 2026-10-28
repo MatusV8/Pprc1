@@ -4,11 +4,11 @@
 require(rtracklayer)
 require(GenomicRanges)
 require(data.table)
-
+devtools::load_all("/groups/stark/vloubiere/vlite/")
 #=========================================#
 # Download GRCm38 v102 GTF file ====
 #=========================================#
-#GTF_file <- "Mus_musculus.GRCm38.102.gtf.gz" # name your file
+anno_path <- "/groups/stark/vojtek/Resources/01_annotations/mm10_GRCm38_v102/Mus_musculus.GRCm38.102.gtf.gz" # name your file
 #mm10v102_url <- "https://ftp.ensembl.org/pub/release-102/gtf/mus_musculus/Mus_musculus.GRCm38.102.gtf.gz"
 #
 #if(!file.exist(GTF_file)){
@@ -21,14 +21,15 @@ require(data.table)
 # Get tagging compatible introns ====
 #=========================================#
 GeneTrap_Intron_path = "db/annotations/GRCm38.102_GeneTrapCompatibleCodingIntrons.txt.gz"
+
 if(!file.exists(GeneTrap_Intron_path)) {
 
   # Read in annotations for the assembly
-  Annotation_GR <- rtracklayer::import(anno_path) %>% as.data.table()
+  Annotation_GR <- rtracklayer::import(anno_path) |> as.data.table()
   Annotation_GR[ ,transcript_support_level := as.numeric(gsub(" .*", "", transcript_support_level))] # Fix transcript support level
 
   # get coding exons
-  coding_exons <- Annotation_GR[tag == "basic" & type == "CDS" & seqnames %in% c(1:19, "X", "Y")] |> unique( by = c("seqnames", "strand", "start", "end", "protein_id", "gene_name"))
+  coding_exons <- Annotation_GR[type == "CDS" & seqnames %in% c(1:19, "X", "Y")] |> unique( by = c("seqnames", "strand", "start", "end", "protein_id", "gene_name"))
   coding_exons[, exon_number := as.numeric(coding_exons$exon_number)]
 
   # get introns
@@ -63,7 +64,8 @@ if(!file.exists(GeneTrap_Intron_path)) {
   ), keyby = .(seqnames, strand, phase, gene_id, contig)]
   introns_collapsed[, contig := NULL]
   setorder(introns_collapsed, seqnames, start,end,strand)
-
+  setcolorder(introns_collapsed, c("seqnames", "start", "end", "strand"))
+  
   # Save as a text file, tab separated
   fwrite(introns_collapsed, GeneTrap_Intron_path, sep = "\t", compress = "gzip")
 }

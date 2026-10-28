@@ -13,7 +13,7 @@ if (length(args)!=9) {
        [required] 7/ Output annotated bed file (.txt)\n
        [required] 8/ Output Compatible only bed file (.bed)\n
        [required] 9/ Output filtering and annotation stats (.txt)\n")
-
+  
 }
 
 #========================================#
@@ -38,10 +38,10 @@ anno_path <- args[2]
 introns_path <- args[3]
 Phase <- as.numeric(args[4])-1 # Assuming that Phase takes values 1 to 3 in the metadata.txt
 
-bam <- "/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/db/bam_unique/AIDscreen/EF1a_Intein_1_Input_rep1_q30_unique.bam"
-anno_path <- "/groups/stark/vojtek/Resources/01_annotations/mm10_GRCm38_v102/Mus_musculus.GRCm38.102.gtf.gz"
-introns_path <- "/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/Pprc1_git/db/annotations/GRCm38.102_GeneTrapCompatibleCodingIntrons.txt.gz"
-Phase <- 0
+#bam <- "/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/db/bam_unique/AIDscreen/EF1a_Intein_1_Input_rep1_q30_unique.bam"
+#anno_path <- "/groups/stark/vojtek/Resources/01_annotations/mm10_GRCm38_v102/Mus_musculus.GRCm38.102.gtf.gz"
+#introns_path <- "/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/Pprc1_git/db/annotations/GRCm38.102_GeneTrapCompatibleCodingIntrons.txt.gz"
+#Phase <- 0
 
 # Output
 o.bed <- args[5]
@@ -73,7 +73,7 @@ Filtered <- SlippageFilter(Collapsed, hamming_dist = 3, mingap =1,fragment_size 
 # Get positions of insertions (1-based).
 # Note: strand needs to be reversed if iPCR cassette is in a reverse orientation
 ins <- copy(Filtered[, .(seqnames, pos, strand, width, dc)])
-ins[, start := fifelse(strand == "+", pos-1, pos+width)]
+ins[, start := as.integer(fifelse(strand == "+", pos-1, pos+width))]
 ins[, strand := fifelse(strand == "+", "-", "+")]
 ins <- ins[, .(seqnames, start, end = start, strand, width, dc )]
 
@@ -86,7 +86,7 @@ Annotated <- annotateInsertions(bed.dt = ins,
 # Export files ####
 #========================================#
 # Annotation file
-write_tsv(Annotated, file = o.AnnoBed, col_names = T)
+fwrite(Annotated, file = o.AnnoBed, sep = "\t", compress = "gzip")
 
 # Export stats
 tibble(
@@ -96,3 +96,11 @@ tibble(
   "N_collapsed_filtered" = nrow(Filtered),
   "N_collapsed_filtered_annotated" = nrow(Annotated)) %>%
   write_tsv(., file = o.Stats, col_names = T)
+
+# Export bed files
+rtracklayer::export(Raw[, .(seqnames,
+                            start = fifelse(strand == "+", pos-1, pos+width),
+                            end = fifelse(strand == "+", pos-1, pos+width),
+                            strand = fifelse(strand == "+", "-", "+"))], o.bed, format = "bed")
+rtracklayer::export(Filtered, o.filtBed, format = "bed")
+rtracklayer::export(Annotated[(InFrame), .(seqnames, start, end, strand)], o.CompatibleBed, format = "bed")

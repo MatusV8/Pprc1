@@ -113,7 +113,7 @@ meta[, bam_stats:= gsub(".bam$", "_stats.txt", bam)]
 meta[, bam_unique:= paste0(tmp_dir, "/db/bam_unique/",experiment_prefix, "/", sampleID, "_q30_unique.bam"),]
 meta[, bed_file:= paste0(tmp_dir, "/db/bed/",experiment_prefix, "/", sampleID, ".bed"),]
 meta[, bed_file_SlippageFilt:= paste0(tmp_dir, "/db/bed/",experiment_prefix, "/", sampleID, "_filt.bed"),]
-meta[, bed_anno:= paste0(tmp_dir, "/db/annotated_integrations/",experiment_prefix, "/", sampleID, "_filt_anno.bed"),]
+meta[, bed_anno:= paste0(tmp_dir, "/db/annotated_integrations/",experiment_prefix, "/", sampleID, "_filt_anno.txt.gz"),]
 meta[, bed_compatible:= paste0(tmp_dir, "/db/bed/",experiment_prefix, "/", sampleID, "_compatible.bed"),]
 meta[, bed_anno_stats:= paste0(tmp_dir, "/db/annotated_integrations/",experiment_prefix, "/", sampleID, "_filt_anno_stats.txt"),]
 

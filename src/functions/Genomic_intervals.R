@@ -85,7 +85,18 @@ intersectRanges <- function(a, b,
   b_gr <- .asGRanges(b, "b")
 
   # Match seqlevel styles
-  if (!any(GenomeInfoDb::seqlevelsStyle(a_gr) %in% GenomeInfoDb::seqlevelsStyle(b_gr))) GenomeInfoDb::seqlevelsStyle(b_gr) <- GenomeInfoDb::seqlevelsStyle(a_gr)
+  a_style <- GenomeInfoDb::seqlevelsStyle(a_gr)[1]
+  b_style <- GenomeInfoDb::seqlevelsStyle(b_gr)
+  
+  if (!any(a_style %in% b_style)) {
+    tryCatch(
+      GenomeInfoDb::seqlevelsStyle(b_gr) <- a_style,
+      error = function(e) {
+        warning("Could not harmonize seqlevels style between `a` and `b`: ", conditionMessage(e),
+                ". Proceeding without renaming; make sure seqnames match manually.")
+      }
+    )
+  }
 
   if (mode %in% c("overlap", "nonoverlap")) {
     has_hit <- GenomicRanges::countOverlaps(a_gr, b_gr, ignore.strand = ignore.strand, ...) > 0
@@ -114,3 +125,143 @@ intersectRanges <- function(a, b,
 
   cbind(a_dt[a_hits], b_dt[b_hits])
 }
+
+#' Split genomic intervals into fixed-width bins
+#'
+#' `binBed()` takes a set of genomic intervals (a BED-like table) and splits
+#' every interval into consecutive, fixed-width bins. It accepts a
+#' [data.table::data.table()], a [base::data.frame()], or a
+#' `GenomicRanges::GRanges` object and always returns a
+#' [data.table::data.table()].
+#'
+#' Each input interval of width `w = end - start + 1` is divided into
+#' `ceiling(w / bins.width)` bins (at least one). Bin `k` (1-based) spans
+#' `start + (k - 1) * bins.width` to
+#' `min(start + k * bins.width - 1, end)`, so the final bin of an interval is
+#' truncated at the original `end` and may be narrower than `bins.width`.
+#'
+#' A `bin.idx` column is added giving the 1-based position of each bin within
+#' its source interval. For intervals on the negative strand (`strand == "-"`)
+#' the bin index is reversed, so `bin.idx == 1` always corresponds to the 5'
+#' end of the feature. If the input has no `strand` column, all bins are
+#' numbered in ascending coordinate order.
+#'
+#' @param bed A `data.table`, `data.frame`, or `GRanges` object describing
+#'   genomic intervals. It must contain (at least) integer `start` and `end`
+#'   columns. For `GRanges` input the `seqnames` column is renamed to `chrom`
+#'   and the `width` column is dropped. All other columns are carried through
+#'   to the output unchanged (repeated for every bin of the interval).
+#' @param bins.width A single positive number giving the desired bin width in
+#'   base pairs.
+#'
+#' @return A `data.table` with the same columns as the (normalised) input plus
+#'   a `bin.idx` column, containing one row per bin. The input object is never
+#'   modified (copy semantics).
+#'
+#' @section Overwrite behaviour:
+#' If the input already contains a `bin.idx` column it is overwritten with the
+#' computed bin index. Any other columns are preserved.
+#'
+#' @examples
+#' library(data.table)
+#'
+#' bed <- data.table(
+#'   chrom  = c("chr1", "chr2"),
+#'   start  = c(1L, 100L),
+#'   end    = c(250L, 149L),
+#'   strand = c("+", "-")
+#' )
+#' binBed(bed, bins.width = 100L)
+#'
+#' # data.frame input works too
+#' binBed(as.data.frame(bed), bins.width = 100L)
+#'
+#' @importFrom data.table as.data.table copy is.data.table set setcolorder
+#' @export
+binBed <- function(bed, bins.width) {
+  ## ---- validate bins.width -------------------------------------------------
+  if (!is.numeric(bins.width) || length(bins.width) != 1L ||
+      is.na(bins.width) || bins.width < 1) {
+    stop("`bins.width` must be a single positive number.", call. = FALSE)
+  }
+  
+  ## ---- normalise input to a fresh data.table -------------------------------
+  if (inherits(bed, "GRanges")) {
+    .dt <- data.table::as.data.table(as.data.frame(bed))
+    if ("seqnames" %in% names(.dt)) {
+      data.table::setnames(.dt, "seqnames", "chrom")
+    }
+    if ("width" %in% names(.dt)) {
+      data.table::set(.dt, j = "width", value = NULL)
+    }
+    ## as.data.frame() turns strand into a factor; use plain characters so the
+    ## downstream comparison strand == "-" behaves predictably.
+    if ("strand" %in% names(.dt)) {
+      data.table::set(.dt, j = "strand", value = as.character(.dt$strand))
+    }
+  } else if (data.table::is.data.table(bed)) {
+    .dt <- data.table::copy(bed)
+  } else if (is.data.frame(bed)) {
+    .dt <- data.table::as.data.table(bed)
+  } else {
+    stop("`bed` must be a data.table, data.frame, or GRanges object.",
+         call. = FALSE)
+  }
+  
+  if (!all(c("start", "end") %in% names(.dt))) {
+    stop("`bed` must contain `start` and `end` columns.", call. = FALSE)
+  }
+  
+  ## Column names *after* normalisation (Bug 2 fix): never rely on names(bed).
+  orig.names <- names(.dt)
+  has.strand <- "strand" %in% orig.names
+  
+  n.src <- nrow(.dt)
+  if (n.src == 0L) {
+    ## Nothing to bin: return an empty table with the expected columns.
+    out.cols <- c(setdiff(orig.names, "bin.idx"), "bin.idx")
+    if (!"bin.idx" %in% names(.dt)) {
+      data.table::set(.dt, j = "bin.idx", value = integer(0))
+    }
+    data.table::setcolorder(.dt, out.cols)
+    return(.dt[])
+  }
+  
+  ## ---- compute per-interval bin counts and expand --------------------------
+  n.bins <- pmax(1L, as.integer(ceiling((.dt$end - .dt$start + 1) / bins.width)))
+  idx     <- rep.int(seq_len(n.src), n.bins)   # source row for each output row
+  bin.idx <- sequence(n.bins)                  # 1..n1, 1..n2, ... (ascending)
+  
+  res <- .dt[idx]
+  
+  ## Add bin.idx as a genuine column *first* so the subsequent start/end
+  ## expressions unambiguously reference columns (Bug 4 fix).
+  data.table::set(res, j = "bin.idx", value = bin.idx)
+  data.table::set(res, j = "start",
+                  value = res$start + (res$bin.idx - 1L) * bins.width)
+  data.table::set(res, j = "end",
+                  value = pmin(res$start + bins.width - 1L, res$end))
+  
+  ## ---- reverse bin index on the negative strand (vectorised) ---------------
+  if (has.strand) {
+    neg <- which(res$strand == "-")
+    if (length(neg)) {
+      n.bins.exp <- rep.int(n.bins, n.bins)  # per output row: bins in its interval
+      data.table::set(
+        res, i = neg, j = "bin.idx",
+        value = n.bins.exp[neg] - res$bin.idx[neg] + 1L
+      )
+    }
+  }
+  
+  ## ---- assemble output -----------------------------------------------------
+  out.cols <- c(setdiff(orig.names, "bin.idx"), "bin.idx")
+  data.table::setcolorder(res, out.cols)
+  ## Drop any helper columns that are not part of the requested output.
+  extra <- setdiff(names(res), out.cols)
+  if (length(extra)) {
+    for (col in extra) data.table::set(res, j = col, value = NULL)
+  }
+  res[]
+}
+

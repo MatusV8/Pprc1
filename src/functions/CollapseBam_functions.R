@@ -17,8 +17,10 @@
 #' @details
 #' Internally this calls \code{\link[Rsamtools]{scanBam}} with a
 #' \code{ScanBamParam} requesting \code{rname}, \code{strand}, \code{pos},
-#' \code{qwidth}, \code{seq}, and the fields listed in \code{tags}.
-#'
+#' \code{qwidth}, \code{cigar}, \code{seq}, and the fields listed in \code{tags}.
+#' To consider possible indels,
+#'  \code{\link[GenomicAlignments]{cigarWidthAlongReferenceSpace}}
+#'  is used to correct the \code{qwidth}.
 #' @examples
 #' \dontrun{
 #' readBam("sample.bam")
@@ -26,6 +28,7 @@
 #' }
 #'
 #' @importFrom Rsamtools scanBam ScanBamParam
+#' @importFrom GenomicAlignments cigarWidthAlongReferenceSpace
 #' @import data.table
 #' @export
 readBam <- function(bam_path, tags = character(0)) {
@@ -46,12 +49,16 @@ readBam <- function(bam_path, tags = character(0)) {
   if (!requireNamespace("Rsamtools", quietly = TRUE)) {
     stop("Package 'Rsamtools' is required but not installed.")
   }
+  
+  if (!requireNamespace("GenomicAlignments", quietly = TRUE)) {
+    stop("Package 'GenomicAlignments' is required but not installed.")
+  }
 
   # --- Read, format and merge BAM files ---------------------------------
   raw <- Rsamtools::scanBam(
       bam_path,
       param = Rsamtools::ScanBamParam(
-        what = c("rname", "strand", "pos", "qwidth", "seq"),
+        what = c("rname", "strand", "pos", "qwidth","cigar", "seq"),
         tag  = tags
       )
     )[[1]]
@@ -59,8 +66,9 @@ readBam <- function(bam_path, tags = character(0)) {
     raw$seq <- as.character(raw$seq)
 
     core <- data.table::as.data.table(raw[c("rname", "pos", "strand", "qwidth", "seq")])
-    data.table::setnames(core, c("rname","qwidth"), c("seqnames", "width"))
-
+    data.table::setnames(core, "rname", "seqnames")
+    # Alignment span on the genome (accounts for insertions/deletions in the CIGAR)
+    core[, width := GenomicAlignments::cigarWidthAlongReferenceSpace(raw$cigar)]
     if (length(tags) > 0) {
       core[, (tags) := raw$tag[tags]]
     }
@@ -231,7 +239,7 @@ SlippageFilter <- function(bam.dt,
 
   # Remove reads which are shorter than the sequence which will be compared
   .c <- copy(bam.dt)
-  .c <- .c[width >= seq_length]
+  .c <- .c[qwidth >= seq_length]
 
   # Resize to fragment size
   if(!is.na(fragment_size)){

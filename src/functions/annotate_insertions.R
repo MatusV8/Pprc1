@@ -2,7 +2,7 @@ annotateInsertions <- function(bed.dt,
                                gtf,
                                compatible_introns,
                                Phase = NA){
-
+  source("src/functions/annotate_insertions.R")
   #-----------------------------------------------------------#
   # The function returns annotated data.table with these columns:
 
@@ -68,11 +68,11 @@ annotateInsertions <- function(bed.dt,
   )
 
   anno[, gene_biotype :=  factor(gene_biotype, levels = biotype_levels, ordered = TRUE)]
-  anno <- anno[type %in% c("transcript", "exon", "five_prime_utr", "trhee_prime_utr")]
+  anno <- anno[type %in% c("transcript", "exon", "five_prime_utr", "three_prime_utr")]
   anno[, type := factor(type, levels = c("exon", "five_prime_utr", "three_prime_utr", "transcript"), ordered = TRUE)]
 
   #--------------------------------------#
-  # Output tibble with annotated integrations
+  # Output data.table with annotated integrations
   #--------------------------------------#
   # Add annotation columns
   BED[, idx := paste(seqnames, start, strand, sep = ":")]
@@ -98,7 +98,7 @@ annotateInsertions <- function(bed.dt,
   setorder(others, type, -Sense, gene_biotype, transcript_support_level)
 
   others <- others[, .SD[1], .(idx)]
-  others[, type := ifelse(type == "transcript", "non_coding_intron", type)]
+  others[, type := fifelse(type == "transcript", "non_coding_intron", as.character(type))]
 
   # Combine
   bed.anno <- rbindlist(

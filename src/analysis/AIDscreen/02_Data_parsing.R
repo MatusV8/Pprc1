@@ -1,4 +1,4 @@
-setwd("/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/")
+setwd("/groups/stark/vojtek/Bioinfo_project/PPRC1_paper/Pprc1_git/")
 ## Libraries ----
 library(tidyverse)
 library(data.table)
@@ -19,7 +19,7 @@ PARAMS <- list(
 META <- readRDS(META_PATH)
 
 Annotated_insertions <- META[, {
-  fread(paste0("db/annotated_integrations/AIDscreen/", .BY, "_filt_anno.bed"))
+  fread(paste0("db/annotated_integrations/Pprc1_AIDscreen/", .BY, "_filt_anno.txt.gz"))
 }, by = sampleID ]
 
 # Export data
@@ -30,11 +30,11 @@ data.table::fwrite(Annotated_insertions, file = "Rdata/AIDscreen_Integrations.tx
 #===================================#
 
 # DC filtering and keep only compatible introns
-cor_int <- Annotated_insertions[(CompatibleIntron) & dc >= PARAMS$dc_cutoff]
+cor_int <- Annotated_insertions[(InFrame) & dc >= PARAMS$dc_cutoff]
 
 # Split by experiment
-intTest_int <- cor_int[grepl("(AN3-12|test)", sampleID)]
-screen_int <- cor_int[!grepl("(AN3-12|test)", sampleID)]
+intTest_int <- cor_int[grepl("test", sampleID)]
+screen_int <- cor_int[!grepl("test", sampleID)]
 screen_int[, sampleID := gsub("Intein_", "", sampleID)]
 
 # create a count table for each sample
