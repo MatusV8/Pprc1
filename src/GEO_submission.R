@@ -42,6 +42,19 @@ paste0(
   " ../geo/DegronScreen/"
 )
 
+# Supplementary table 1
+enr_EvA <- fread("db/FC_tables/AIDscreen_EF1a_vs_Atp5k_WaldTest.csv")
+enr_EvA[, `:=`(
+  EF1a_hit = log2OR_EF1a >0 & padj_EF1a < 0.01,
+  Atp5k_hit = log2OR_Atp5k > 0 & padj_Atp5k < 0.01,
+  specificity = fcase(
+    padj_wald < 0.1 & `log2OR_EF1A-Atp5k` >= 1, "EF1a_specific",
+    padj_wald < 0.1 & `log2OR_EF1A-Atp5k` <= -1, "Atp5k_specific",
+    default = "NS")
+)]
+
+fwrite(x = enr_EvA, file = "results/Supplementary_table_1.csv")
+
 # Integrations
 int <- fread("Rdata/AIDscreen_Integrations.txt.gz")
 int[, sampleID := gsub("(EF1a|Atp5k|test)_(Intein|Classic)_([1-3])_(GFPlow|Input|GFPhigh)_(rep[12])", "\\1_\\2_frame\\3_\\4" , sampleID)]

@@ -25,7 +25,7 @@ setorder(int, -InFrame)
 Xon.dat <- fread("/groups/stark/vojtek/FACS/Xon_analysis/Combined_data.csv")
 Xon.dat[, rep := seq_len(.N), by = .(Sample, Drug, `Time[h]`)]
 
-#---- Supplementary Figure 1B: Classical vs intein approach ------------
+#---- Supplementary Figure 1C: Classical vs intein approach ------------
 
 # Background as reverse strand intronic
 Classic_counts <- int[grepl("Classic", sampleID) & dc >= PARAMS$dc_cutoff] %>%

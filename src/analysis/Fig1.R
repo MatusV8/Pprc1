@@ -27,8 +27,8 @@ Counts <- fread("db/count_tables/AID_screen_counts.csv")
 enr <- fread("db/FC_tables/AIDscreen_CMH_enrichment.csv")
 enr_EvA <- fread("db/FC_tables/AIDscreen_EF1a_vs_Atp5k_WaldTest.csv")
 enr_EvA[, diff := fcase(
-  padj_wald < PARAMS$padj_eva & `log2OR_EF1A-Atp5k` >= PARAMS$log2OR_cutoff_eva, "EF1a_specific",
-  padj_wald < PARAMS$padj_eva & `log2OR_EF1A-Atp5k` <= -PARAMS$log2OR_cutoff_eva, "Atp5k_specific")
+  padj_wald < PARAMS$padj_eva & `log2OR_EF1a-Atp5k` >= PARAMS$log2OR_cutoff_eva, "EF1a_specific",
+  padj_wald < PARAMS$padj_eva & `log2OR_EF1a-Atp5k` <= -PARAMS$log2OR_cutoff_eva, "Atp5k_specific")
 ]
 
 Atp5k_hits <- enr[reporter == "Atp5k" & hit, gene_id]

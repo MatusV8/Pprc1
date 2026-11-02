@@ -110,7 +110,7 @@ wald_reporters <- dcast(cmh_enr1[is.finite(log2OR) & (max_GFPlow_count >= PARAMS
                         gene_id + gene_name ~ reporter,
                         value.var = c("log2OR", "log2SE", "padj")) %>%
   drop_na() %>%
-  mutate(`log2OR_EF1A-Atp5k` = log2OR_EF1a -log2OR_Atp5k,
+  mutate(`log2OR_EF1a-Atp5k` = log2OR_EF1a -log2OR_Atp5k,
          SE_delta = sqrt(log2SE_EF1a^2 + log2SE_Atp5k^2),
          z = `log2OR_EF1A-Atp5k` / SE_delta,
          p_wald = 2 * pnorm(-abs(z)),
