@@ -18,7 +18,7 @@ source("src/functions/plotting_fun.R")
 prom <- fread("db/annotations/GRCm38.v102.EPDnew_promoters.txt.gz")
 
 ## --- PROseq ----
-Pprc1_PROseq <- fread("db/FC_tables/db/Pprc1_PROseq_DESeq2_FC_Pprc1Bound_TCT.csv")
+Pprc1_PROseq <- fread("db/FC_tables/Pprc1_PROseq_DESeq2_FC_Pprc1Bound_TCT.csv")
 
 ## -- ChIP-seq ----
 Pprc1_peaks <- fread("db/bed/Pprc1_confident_peaks_1kb_centered.txt")

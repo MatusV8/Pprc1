@@ -8,7 +8,7 @@ getGOs <- function() {
   GO <- merge(ens, go2all, by = "gene_id")
   
   go_desc <- as.data.table(AnnotationDbi::select(
-    GO.db, keys = unique(GO$go_id), keytype = "GOID",
+    GO.db::GO.db, keys = unique(GO$go_id), keytype = "GOID",
     columns = c("TERM", "DEFINITION")))
   GO <- merge(GO, go_desc, by.x = "go_id", by.y = "GOID", all.x = TRUE)
   
