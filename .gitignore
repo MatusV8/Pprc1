@@ -1,6 +1,7 @@
 metadata_AIDscreen.txt
+metadata_ChIP.txt
+metadata_PROseq.txt
 /Rdata
 /results
-metadata_ChIP.txt
 /db
 /db/annotations
