@@ -52,6 +52,16 @@ https://github.com/vloubiere/vlite
 Anyone running this will need to point that call at their own
 checkout of `vlite`, or replace the `vlite::*` calls with equivalent command lines.
 
+### Command-line tools
+
+`bowtie`, `bowtie2`, `samtools`, `trim_galore`, `macs2`, and `perl` (for the
+demultiplexing scripts in `src/functions/`).
+
+The conda environment used to run the pipelines can be created from `vlite_pipelines.yaml`
+```
+conda env create -f vlite_pipelines.yaml
+```
+
 ## Running this elsewhere
 
 Two things to be aware of before re-running any of it:
